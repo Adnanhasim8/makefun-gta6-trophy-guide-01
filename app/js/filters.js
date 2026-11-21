@@ -28,12 +28,10 @@ export function trophyMatches(trophy, earned, filters) {
   if (filters.status === 'earned' && !earned.has(trophy.name)) return false;
   if (filters.status === 'unearned' && earned.has(trophy.name)) return false;
   if (filters.missableOnly && !trophy.missable) return false;
-  if (filters.search) {
-    const needle = filters.search.trim().toLowerCase();
-    if (needle) {
-      const haystack = `${trophy.name} ${trophy.description} ${trophy.guide}`.toLowerCase();
-      if (!haystack.includes(needle)) return false;
-    }
+  const needle = (filters.search ?? '').trim().toLowerCase();
+  if (needle) {
+    const haystack = `${trophy.name} ${trophy.description} ${trophy.guide}`.toLowerCase();
+    if (!haystack.includes(needle)) return false;
   }
   return true;
 }
