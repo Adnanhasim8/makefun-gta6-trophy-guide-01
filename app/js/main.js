@@ -1,11 +1,13 @@
-// Boot for the Leonida Ledger: load the trophy data, wire the toolbar and the
-// tabs, and render the checklist, roadmap and missables from one shared state.
+// Boot for the Leonida Ledger: load the trophy data, wire the toolbar and
+// the tabs, and render the checklist, roadmap and missables from one shared
+// state object.
 
 import { loadEarned, saveEarned, loadSettings, saveSettings, exportProgress, importProgress } from './store.js';
 import { trophyMatches } from './filters.js';
 import { buildTrophyRow, renderProgress, renderRoadmap, renderMissables } from './views.js';
 
 const DATA_URL = 'data/trophies.json';
+const VIEWS = ['checklist', 'roadmap', 'missables', 'sources'];
 
 const state = {
   trophies: [],
@@ -16,7 +18,19 @@ const state = {
   view: 'checklist',
 };
 
-const VIEWS = ['checklist', 'roadmap', 'missables', 'sources'];
+const handlers = {
+  onToggleEarned(name, checked) {
+    if (checked) state.earned.add(name);
+    else state.earned.delete(name);
+    saveEarned(state.earned);
+    renderAll();
+  },
+  onToggleDetail(id) {
+    state.openId = state.openId === id ? null : id;
+    renderChecklist();
+    renderMissables(state.trophies, state.earned, state.settings.spoilers, state.openId, handlers);
+  },
+};
 
 function currentFilters() {
   return {
@@ -26,13 +40,6 @@ function currentFilters() {
     status: state.settings.status,
     missableOnly: state.settings.missableOnly,
   };
-}
-
-function renderAll() {
-  renderProgress(state.trophies, state.earned);
-  renderChecklist();
-  renderRoadmap(state.trophies, state.earned, handlers);
-  renderMissables(state.trophies, state.earned, state.settings.spoilers, state.openId, handlers);
 }
 
 function renderChecklist() {
@@ -49,19 +56,12 @@ function renderChecklist() {
   document.getElementById('empty-note').hidden = shown.length !== 0;
 }
 
-const handlers = {
-  onToggleEarned(name, checked) {
-    if (checked) state.earned.add(name);
-    else state.earned.delete(name);
-    saveEarned(state.earned);
-    renderAll();
-  },
-  onToggleDetail(id) {
-    state.openId = state.openId === id ? null : id;
-    renderChecklist();
-    renderMissables(state.trophies, state.earned, state.settings.spoilers, state.openId, handlers);
-  },
-};
+function renderAll() {
+  renderProgress(state.trophies, state.earned);
+  renderChecklist();
+  renderRoadmap(state.trophies, state.earned);
+  renderMissables(state.trophies, state.earned, state.settings.spoilers, state.openId, handlers);
+}
 
 function showView(view) {
   state.view = view;
@@ -69,7 +69,7 @@ function showView(view) {
     document.getElementById(`view-${name}`).hidden = name !== view;
     document.getElementById(`tab-${name}`).classList.toggle('active', name === view);
   }
-  if (view === 'roadmap') renderRoadmap(state.trophies, state.earned, handlers);
+  if (view === 'roadmap') renderRoadmap(state.trophies, state.earned);
   if (view === 'missables') renderMissables(state.trophies, state.earned, state.settings.spoilers, state.openId, handlers);
 }
 
@@ -80,29 +80,20 @@ function wireToolbar() {
     renderChecklist();
   });
 
-  const kind = document.getElementById('kind');
-  kind.value = state.settings.kind;
-  kind.addEventListener('change', () => {
-    state.settings.kind = kind.value;
-    saveSettings(state.settings);
-    renderChecklist();
-  });
-
-  const grade = document.getElementById('grade');
-  grade.value = state.settings.grade;
-  grade.addEventListener('change', () => {
-    state.settings.grade = grade.value;
-    saveSettings(state.settings);
-    renderChecklist();
-  });
-
-  const status = document.getElementById('status');
-  status.value = state.settings.status;
-  status.addEventListener('change', () => {
-    state.settings.status = status.value;
-    saveSettings(state.settings);
-    renderChecklist();
-  });
+  const selects = [
+    ['kind', 'kind'],
+    ['grade', 'grade'],
+    ['status', 'status'],
+  ];
+  for (const [id, key] of selects) {
+    const el = document.getElementById(id);
+    el.value = state.settings[key];
+    el.addEventListener('change', () => {
+      state.settings[key] = el.value;
+      saveSettings(state.settings);
+      renderChecklist();
+    });
+  }
 
   const missableOnly = document.getElementById('missable-only');
   missableOnly.checked = state.settings.missableOnly;
