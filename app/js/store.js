@@ -1,15 +1,17 @@
-// Saved progress for the Leonida Ledger: one set of earned trophy names in
-// localStorage, plus export to a file and import back. Nothing leaves the
-// browser except the file the reader asks to download.
+// Saved progress for the Leonida Ledger. Earned trophies live in
+// localStorage as a sorted array of names, and the reader's filter and
+// spoiler choices live beside them. Export downloads the earned set as a
+// JSON file; import reads one back. Nothing leaves the browser except the
+// file the reader asks to download.
 
-export const STORAGE_KEY = 'leonida-ledger-progress-v1';
+export const PROGRESS_KEY = 'leonida-ledger-progress-v1';
 export const SETTINGS_KEY = 'leonida-ledger-settings-v1';
 
-// Load the earned set. A damaged or foreign value is treated as empty so a
-// bad import can never break the checklist.
+// Read the earned set. A damaged or foreign value is treated as empty, so
+// a bad import can never break the checklist.
 export function loadEarned() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(PROGRESS_KEY);
     if (!raw) return new Set();
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set();
@@ -20,13 +22,15 @@ export function loadEarned() {
 }
 
 export function saveEarned(earned) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...earned].sort()));
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify([...earned].sort()));
 }
 
 // Reader settings that survive a reload: the spoiler switch and the filters.
 export function loadSettings() {
+  const fallback = { spoilers: false, kind: 'all', grade: 'all', status: 'all', missableOnly: false };
   try {
     const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object') return fallback;
     return {
       spoilers: parsed.spoilers === true,
       kind: typeof parsed.kind === 'string' ? parsed.kind : 'all',
@@ -35,7 +39,7 @@ export function loadSettings() {
       missableOnly: parsed.missableOnly === true,
     };
   } catch {
-    return { spoilers: false, kind: 'all', grade: 'all', status: 'all', missableOnly: false };
+    return fallback;
   }
 }
 
@@ -44,7 +48,7 @@ export function saveSettings(settings) {
 }
 
 // Turn the earned set into a download. The file carries the game name and a
-// date so an imported file from another guide is easy to spot.
+// date so a file from another guide is easy to spot on import.
 export function exportProgress(earned) {
   const payload = {
     guide: 'Leonida Ledger — GTA 6 trophy progress',
