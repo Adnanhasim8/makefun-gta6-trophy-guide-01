@@ -1,7 +1,7 @@
-// Rendering: the checklist rows with their guide detail, the header progress,
-// the platinum roadmap and the missables page. All markup is built with
-// textContent and createElement, never innerHTML, so trophy text can never
-// run as code.
+// Rendering: the checklist rows with their guide detail, the header
+// progress card, the platinum roadmap and the missables page. All markup is
+// built with textContent and createElement, never innerHTML, so trophy text
+// can never run as code.
 
 import { displayName, displayDescription, isHiddenBySpoilers, progressCounts } from './filters.js';
 
@@ -62,17 +62,10 @@ export const STAGES = [
 // tried again as often as needed. They are not missable.
 export const RETRYABLE_IDS = [33, 34, 36, 39, 51];
 
-function gradeTag(trophy) {
+function makeTag(text, extraClass) {
   const tag = document.createElement('span');
-  tag.className = `tag grade-${trophy.grade}`;
-  tag.textContent = trophy.grade;
-  return tag;
-}
-
-function kindTag(trophy) {
-  const tag = document.createElement('span');
-  tag.className = 'tag';
-  tag.textContent = KIND_LABELS[trophy.kind] ?? trophy.kind;
+  tag.className = extraClass ? `tag ${extraClass}` : 'tag';
+  tag.textContent = text;
   return tag;
 }
 
@@ -81,7 +74,8 @@ function kindTag(trophy) {
 export function buildTrophyRow(trophy, earned, spoilersOn, open, handlers) {
   const item = document.createElement('li');
   item.className = 'trophy';
-  if (earned.has(trophy.name)) item.classList.add('earned');
+  const isEarned = earned.has(trophy.name);
+  if (isEarned) item.classList.add('earned');
 
   const row = document.createElement('div');
   row.className = 'trophy-row';
@@ -89,7 +83,7 @@ export function buildTrophyRow(trophy, earned, spoilersOn, open, handlers) {
   const check = document.createElement('input');
   check.type = 'checkbox';
   check.className = 'trophy-check';
-  check.checked = earned.has(trophy.name);
+  check.checked = isEarned;
   check.setAttribute('aria-label', `Mark ${trophy.name} as earned`);
   check.addEventListener('click', (event) => event.stopPropagation());
   check.addEventListener('change', () => handlers.onToggleEarned(trophy.name, check.checked));
@@ -103,11 +97,12 @@ export function buildTrophyRow(trophy, earned, spoilersOn, open, handlers) {
   const main = document.createElement('div');
   main.className = 'trophy-main';
 
+  const hidden = isHiddenBySpoilers(trophy, earned, spoilersOn);
   const name = document.createElement('div');
   name.className = 'trophy-name';
-  if (isHiddenBySpoilers(trophy, earned, spoilersOn)) name.classList.add('spoiler-hidden');
+  if (hidden) name.classList.add('spoiler-hidden');
   name.textContent = displayName(trophy, earned, spoilersOn);
-  if (earned.has(trophy.name)) {
+  if (isEarned) {
     const mark = document.createElement('span');
     mark.className = 'earned-mark';
     mark.textContent = '✓ Earned';
@@ -117,30 +112,19 @@ export function buildTrophyRow(trophy, earned, spoilersOn, open, handlers) {
 
   const desc = document.createElement('div');
   desc.className = 'trophy-desc';
-  if (isHiddenBySpoilers(trophy, earned, spoilersOn)) desc.classList.add('spoiler-hidden');
+  if (hidden) desc.classList.add('spoiler-hidden');
   desc.textContent = displayDescription(trophy, earned, spoilersOn);
   main.appendChild(desc);
 
   const tags = document.createElement('div');
   tags.className = 'trophy-tags';
-  tags.appendChild(gradeTag(trophy));
-  tags.appendChild(kindTag(trophy));
-  if (trophy.missable) {
-    const flag = document.createElement('span');
-    flag.className = 'tag missable';
-    flag.textContent = '⚠ Missable';
-    tags.appendChild(flag);
-  }
-  if (trophy.targetLabel) {
-    const target = document.createElement('span');
-    target.className = 'tag target';
-    target.textContent = trophy.targetLabel;
-    tags.appendChild(target);
-  }
+  tags.appendChild(makeTag(trophy.grade, `grade-${trophy.grade}`));
+  tags.appendChild(makeTag(KIND_LABELS[trophy.kind] ?? trophy.kind, ''));
+  if (trophy.missable) tags.appendChild(makeTag('⚠ Missable', 'missable'));
+  if (trophy.targetLabel) tags.appendChild(makeTag(trophy.targetLabel, 'target'));
   main.appendChild(tags);
   row.appendChild(main);
 
-  const hidden = isHiddenBySpoilers(trophy, earned, spoilersOn);
   if (!hidden) {
     const toggle = document.createElement('button');
     toggle.type = 'button';
@@ -207,8 +191,7 @@ export function buildDetail(trophy) {
 // The header progress card.
 export function renderProgress(trophies, earned) {
   const counts = progressCounts(trophies, earned);
-  const earnedEl = document.getElementById('earned-count');
-  earnedEl.textContent = String(counts.earned);
+  document.getElementById('earned-count').textContent = String(counts.earned);
   const fill = document.getElementById('progress-fill');
   const bar = document.getElementById('progress-bar');
   const percent = counts.total === 0 ? 0 : Math.round((counts.earned / counts.total) * 100);
@@ -219,7 +202,7 @@ export function renderProgress(trophies, earned) {
 }
 
 // The roadmap: five stages, each with its trophies and how many are done.
-export function renderRoadmap(trophies, earned, handlers) {
+export function renderRoadmap(trophies, earned) {
   const stagesEl = document.getElementById('stages');
   stagesEl.replaceChildren();
   for (const stage of STAGES) {
@@ -245,8 +228,9 @@ export function renderRoadmap(trophies, earned, handlers) {
     list.className = 'stage-trophies';
     for (const trophy of stageTrophies) {
       const line = document.createElement('li');
-      if (earned.has(trophy.name)) line.classList.add('done');
-      line.textContent = `${earned.has(trophy.name) ? '✓ ' : ''}${trophy.name} — ${trophy.description} `;
+      const got = earned.has(trophy.name);
+      if (got) line.classList.add('done');
+      line.textContent = `${got ? '✓ ' : ''}${trophy.name} — ${trophy.description} `;
       const count = document.createElement('span');
       count.className = 'trophy-count';
       count.textContent = `(${trophy.grade}${trophy.targetLabel ? `, ${trophy.targetLabel}` : ''})`;
